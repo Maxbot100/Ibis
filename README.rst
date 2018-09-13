@@ -19,6 +19,7 @@ through these facts by topic, place, people involved, or dates they took place. 
 article with an automatically generated list of sources.
 
 With this in mind, these are the core design goals of Ibis:
+
 * *DRY (Don't Repeat Yourself)* - Current systems require repetition in one form or another: either you have to reread
   through the notes on a source, pulling out information in the same order & context in which it was originally
   presented, or you have to rewrite the same facts & sources in every article that references them.
@@ -33,6 +34,7 @@ With this in mind, these are the core design goals of Ibis:
 Feature Goals
 -------------
 Based on the design goals, this is what I have planned for Ibis:
+
 * *Fact-based knowledge* - To cut out repetition, Ibis is built on facts, which are singular, verifiable pieces of
   information tied to one or more sources, and tagged with relevant topics for later searchability
 * *Rapid note-taking* - While the tagging system is powerful, it can also be tedious. Ibis relies on the typical linear
