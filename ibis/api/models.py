@@ -1,7 +1,18 @@
 from django.contrib.auth.models import User
 from django.db.models import Manager, Model, DateTimeField, CharField, TextField, ForeignKey, ManyToManyField, \
     SET_NULL, CASCADE
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
+from rest_framework.authtoken.models import Token
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_auth_token(sender, instance=None, created=False, **kwargs):
+    if created:
+        Token.objects.create(user=instance)
 
 
 class Source(Model):
@@ -30,6 +41,9 @@ class Source(Model):
 
     def __str__(self) -> str:
         return "{0.name} by {0.author} on {0.published}".format(self)
+
+    def get_absolute_url(self):
+        return reverse('source-detail', args={'pk': self.pk})
 
 
 class Period(Model):
@@ -65,6 +79,9 @@ class Period(Model):
             #
             return "(unknown period)"
 
+    def get_absolute_url(self):
+        return reverse('period-detail', args={'pk': self.pk})
+
 
 class TagType(Model):
     """
@@ -80,6 +97,9 @@ class TagType(Model):
 
     def __str__(self) -> str:
         return str(self.name)
+
+    def get_absolute_url(self):
+        return reverse('tag-type-detail', args={'pk': self.pk})
 
 
 class Tag(Model):
@@ -102,7 +122,7 @@ class Tag(Model):
 
     name = CharField(max_length=64)
     text = TextField()
-    type = ForeignKey(TagType, on_delete=SET_NULL, related_name='tags', related_query_name='tag')
+    type = ForeignKey(TagType, null=True, blank=True, on_delete=SET_NULL, related_name='tags', related_query_name='tag')
     tags = ManyToManyField('self', related_name='tagged_by', symmetrical=False)
     user = ForeignKey(User, on_delete=CASCADE, related_name='tags', related_query_name='tag')
 
@@ -111,6 +131,9 @@ class Tag(Model):
 
     def __str__(self) -> str:
         return str(self.name)
+
+    def get_absolute_url(self):
+        return reverse('tag-detail', args={'pk': self.pk})
 
 
 class Alias(Model):
@@ -133,6 +156,9 @@ class Alias(Model):
 
     def __str__(self) -> str:
         return "{0.name} -> {0.tag.name}".format(self)
+
+    def get_absolute_url(self):
+        return reverse('alias-detail', args={'pk': self.pk})
 
 
 class Fact(Model):
@@ -158,8 +184,8 @@ class Fact(Model):
     context = ForeignKey(Tag, null=True, blank=True, on_delete=CASCADE)
     period = ForeignKey(Period, null=True, blank=True, on_delete=SET_NULL, related_name='facts',
                         related_query_name='fact')
-    tags = ManyToManyField(Tag, null=True, blank=True, related_name='facts', related_query_name='fact')
-    sources = ManyToManyField(Source, null=True, blank=True, related_name='facts', related_query_name='fact')
+    tags = ManyToManyField(Tag, blank=True, related_name='facts', related_query_name='fact')
+    sources = ManyToManyField(Source, blank=True, related_name='facts', related_query_name='fact')
     user = ForeignKey(User, on_delete=CASCADE, related_name='facts', related_query_name='fact')
 
     def __str__(self) -> str:
@@ -175,3 +201,6 @@ class Fact(Model):
         super().save(*args, **kwargs)
         # Ensure context is added to tags. Does nothing if relationship already exists
         self.tags.add(self.context)
+
+    def get_absolute_url(self):
+        return reverse('fact-detail', args={'pk': self.pk})

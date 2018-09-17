@@ -153,5 +153,12 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
+# Django migrations
+migrations/
 
+# SQLite files
+*.sqlite3
+*.sqlite
+
+# PyCharm files
 .idea/
