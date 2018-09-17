@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.db.models import CharField, Model, DateTimeField, TextField, ForeignKey, ManyToManyField, SET_NULL, CASCADE
+from django.db.models import Manager, Model, DateTimeField, CharField, TextField, ForeignKey, ManyToManyField, \
+    SET_NULL, CASCADE
 from django.utils import timezone
 
 
@@ -18,12 +19,17 @@ class Source(Model):
     Foreign objects sets:
     facts (Fact): Facts claimed in this source
     """
+    objects: Manager
+
     name = CharField(max_length=128)
     accessed = DateTimeField(default=timezone.now)
-    author = CharField(max_length=128)
-    publisher = CharField(max_length=128)
+    author = CharField(max_length=128, blank=True)
+    publisher = CharField(max_length=128, blank=True)
     published = DateTimeField(null=True, blank=True)
     user = ForeignKey(User, on_delete=CASCADE, related_name='sources', related_query_name='source')
+
+    def __str__(self) -> str:
+        return "{0.name} by {0.author} on {0.published}".format(self)
 
 
 class Period(Model):
@@ -41,9 +47,23 @@ class Period(Model):
     Foreign object sets:
     facts (Fact): Facts that are tied to this specific period of time
     """
+    objects: Manager
+
     start = DateTimeField(null=True, blank=True)
     end = DateTimeField(null=True, blank=True)
     user = ForeignKey(User, on_delete=CASCADE, related_name='periods', related_query_name='period')
+
+    def __str__(self) -> str:
+        if self.start:
+            if self.end:
+                return "{0.start:%Y-%m-%d %H:%M:%S} to {0.end:%Y-%m-%d %H:%M:%S}".format(self)
+            else:
+                return "from {0.start:%Y-%m-%d %H:%M:%S}".format(self)
+        elif self.end:
+            return "until {0.end:%Y-%m-%d %H:%M:%S}".format(self)
+        else:
+            #
+            return "(unknown period)"
 
 
 class TagType(Model):
@@ -52,8 +72,14 @@ class TagType(Model):
 
     name (str): Human-readable name for the tag type
     """
+    objects: Manager
+
     name = CharField(max_length=64)
+
     # Once front-end editing is live, this will likely include a "template" field for rendering tags by type
+
+    def __str__(self) -> str:
+        return str(self.name)
 
 
 class Tag(Model):
@@ -72,6 +98,8 @@ class Tag(Model):
     tags (Tag): Related/parent topics
     tagged_by (Tag): Other tags that tag this object
     """
+    objects: Manager
+
     name = CharField(max_length=64)
     text = TextField()
     type = ForeignKey(TagType, on_delete=SET_NULL, related_name='tags', related_query_name='tag')
@@ -80,6 +108,9 @@ class Tag(Model):
 
     class Meta:
         unique_together = (('name', 'user'),)
+
+    def __str__(self) -> str:
+        return str(self.name)
 
 
 class Alias(Model):
@@ -90,6 +121,8 @@ class Alias(Model):
     tag (Tag): Tag referenced by the alias
     user (User): Owner of this object
     """
+    objects: Manager
+
     name = CharField(max_length=64)
     tag = ForeignKey(Tag, on_delete=CASCADE, related_name='aliases', related_query_name='alias')
     user = ForeignKey(User, on_delete=CASCADE, related_name='aliases', related_query_name='alias')
@@ -97,6 +130,9 @@ class Alias(Model):
     class Meta:
         unique_together = (('name', 'user'),)
         verbose_name_plural = "aliases"
+
+    def __str__(self) -> str:
+        return "{0.name} -> {0.tag.name}".format(self)
 
 
 class Fact(Model):
@@ -115,11 +151,27 @@ class Fact(Model):
     tags (Tag): Topics/people/locations/etc. discussed in this fact
     sources (Source): Sources that claim this fact is true
     """
+    objects: Manager
 
-    key = CharField(max_length=128)
+    key = CharField(max_length=128, blank=True)
     value = CharField(max_length=128)
     context = ForeignKey(Tag, null=True, blank=True, on_delete=CASCADE)
-    period = ForeignKey(Period, null=True, blank=True, on_delete=SET_NULL, related_name='facts', related_query_name='fact')
+    period = ForeignKey(Period, null=True, blank=True, on_delete=SET_NULL, related_name='facts',
+                        related_query_name='fact')
     tags = ManyToManyField(Tag, null=True, blank=True, related_name='facts', related_query_name='fact')
     sources = ManyToManyField(Source, null=True, blank=True, related_name='facts', related_query_name='fact')
     user = ForeignKey(User, on_delete=CASCADE, related_name='facts', related_query_name='fact')
+
+    def __str__(self) -> str:
+        s = ""
+        if self.context:
+            s += "{0.context} - ".format(self)
+        if self.key:
+            s += "{0.key}: ".format(self)
+        s += self.value
+        return s
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Ensure context is added to tags. Does nothing if relationship already exists
+        self.tags.add(self.context)
